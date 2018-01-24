@@ -16,7 +16,7 @@ MultiGrid: extension to Grid where each cell is a set of objects.
 
 import itertools
 import numpy as np
-
+import random
 
 def accept_tuple_argument(wrapped_function):
     """ Decorator to allow grid methods that take a list of (x, y) position tuples
@@ -352,7 +352,9 @@ class Grid:
     def find_empty(self):
         """ Pick a random empty cell. """
         if self.exists_empty_cells():
-            pos = self.random_state.choice(self.empties)
+            # numpy's random choice does not work with tuple list
+            choice_ind = self.random_state.randint(len(self.empties))
+            pos = self.empties[choice_ind]
             return pos
         else:
             return None
