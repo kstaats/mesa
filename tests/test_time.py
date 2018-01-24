@@ -1,9 +1,9 @@
 '''
 Test the advanced schedulers.
 '''
-
+import numpy
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 from mesa import Model, Agent
 from mesa.time import (BaseScheduler, StagedActivation, RandomActivation,
                        SimultaneousActivation)
@@ -12,6 +12,14 @@ RANDOM = 'random'
 STAGED = 'staged'
 SIMULTANEOUS = 'simultaneous'
 
+class MockRandomState(numpy.random.RandomState):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.shuffle_call_count = 0
+
+    def shuffle(self, x):
+        self.shuffle_call_count += 1
 
 class MockAgent(Agent):
     '''
@@ -45,19 +53,24 @@ class MockModel(Model):
                               'staged' creates a StagedActivation scheduler.
                               The default scheduler is a BaseScheduler.
         '''
+        super().__init__()
+
+        self.random_state = MockRandomState()
+
         self.log = []
 
         # Make scheduler
         if activation == STAGED:
             model_stages = ["stage_one", "stage_two"]
-            self.schedule = StagedActivation(self, model_stages,
-                                             shuffle=shuffle)
+            self.schedule = StagedActivation(self, stage_list=model_stages,
+                                             shuffle=shuffle,
+                                             random_state=self.random_state)
         elif activation == RANDOM:
-            self.schedule = RandomActivation(self)
+            self.schedule = RandomActivation(self, random_state=self.random_state)
         elif activation == SIMULTANEOUS:
-            self.schedule = SimultaneousActivation(self)
+            self.schedule = SimultaneousActivation(self, random_state=self.random_state)
         else:
-            self.schedule = BaseScheduler(self)
+            self.schedule = BaseScheduler(self, random_state=self.random_state)
 
         # Make agents
         for name in ["A", "B"]:
@@ -96,10 +109,9 @@ class TestStagedActivation(TestCase):
 
     def test_shuffle_shuffles_agents(self):
         model = MockModel(shuffle=True)
-        with patch('mesa.time.random.shuffle') as mock_shuffle:
-            assert mock_shuffle.call_count == 0
-            model.step()
-            assert mock_shuffle.call_count == 1
+        assert model.random_state.shuffle_call_count == 0
+        model.step()
+        assert model.random_state.shuffle_call_count == 1
 
     def test_remove(self):
         '''
@@ -121,9 +133,8 @@ class TestRandomActivation(TestCase):
         Test the random activation step
         '''
         model = MockModel(activation=RANDOM)
-        with patch('mesa.time.random.shuffle') as mock_shuffle:
-            model.schedule.step()
-            assert mock_shuffle.call_count == 1
+        model.schedule.step()
+        assert model.random_state.shuffle_call_count == 1
 
     def test_random_activation_step_increments_step_and_time_counts(self):
         '''
