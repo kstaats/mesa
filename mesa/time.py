@@ -26,8 +26,7 @@ TODO: Have the schedulers use the model's randomizer, to keep random number
 seeds consistent and allow for replication.
 
 """
-import random
-
+import numpy as np
 
 class BaseScheduler:
     """ Simplest scheduler; activates agents one at a time, in the order
@@ -38,12 +37,17 @@ class BaseScheduler:
     (This is explicitly meant to replicate the scheduler in MASON).
 
     """
-    def __init__(self, model):
+    def __init__(self, model, random_state=None):
         """ Create a new, empty BaseScheduler. """
         self.model = model
         self.steps = 0
         self.time = 0
         self.agents = []
+
+        if random_state is None:
+            random_state = np.random.RandomState()
+
+        self.random_state = random_state
 
     def add(self, agent):
         """ Add an Agent object to the schedule.
@@ -92,7 +96,7 @@ class RandomActivation(BaseScheduler):
         random order.
 
         """
-        random.shuffle(self.agents)
+        self.random_state.shuffle(self.agents)
         for agent in self.agents[:]:
             agent.step()
         self.steps += 1
@@ -129,8 +133,8 @@ class StagedActivation(BaseScheduler):
     increments of 1 / (# of stages), meaning that 1 step = 1 unit of time.
 
     """
-    def __init__(self, model, stage_list=None, shuffle=False,
-                 shuffle_between_stages=False):
+    def __init__(self, model, random_state=None, stage_list=None,
+                shuffle=False, shuffle_between_stages=False):
         """ Create an empty Staged Activation schedule.
 
         Args:
@@ -143,7 +147,7 @@ class StagedActivation(BaseScheduler):
                                     of each step.
 
         """
-        super().__init__(model)
+        super().__init__(model, random_state)
         self.stage_list = ["step"] if not stage_list else stage_list
         self.shuffle = shuffle
         self.shuffle_between_stages = shuffle_between_stages
@@ -152,12 +156,12 @@ class StagedActivation(BaseScheduler):
     def step(self):
         """ Executes all the stages for all agents. """
         if self.shuffle:
-            random.shuffle(self.agents)
+            self.random_state.shuffle(self.agents)
         for stage in self.stage_list:
             for agent in self.agents[:]:
                 getattr(agent, stage)()  # Run stage
             if self.shuffle_between_stages:
-                random.shuffle(self.agents)
+                self.random_state.shuffle(self.agents)
             self.time += self.stage_time
 
         self.steps += 1

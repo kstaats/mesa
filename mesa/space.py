@@ -16,7 +16,6 @@ MultiGrid: extension to Grid where each cell is a set of objects.
 
 import itertools
 import numpy as np
-import random
 
 
 def accept_tuple_argument(wrapped_function):
@@ -46,6 +45,7 @@ class Grid:
         width, height: The grid's width and height.
         torus: Boolean which determines whether to treat the grid as a torus.
         grid: Internal list-of-lists which holds the grid cells themselves.
+        random_state: numpy.random.RandomState object to use internally
 
     Methods:
         get_neighbors: Returns the objects surrounding a given cell.
@@ -70,7 +70,7 @@ class Grid:
 
     """
 
-    def __init__(self, width, height, torus):
+    def __init__(self, width, height, torus, random_state=None):
         """ Create a new grid.
 
         Args:
@@ -81,6 +81,11 @@ class Grid:
         self.height = height
         self.width = width
         self.torus = torus
+
+        if random_state is None:
+            random_state = np.random.RandomState()
+
+        self.random_state = random_state
 
         self.grid = []
 
@@ -347,7 +352,7 @@ class Grid:
     def find_empty(self):
         """ Pick a random empty cell. """
         if self.exists_empty_cells():
-            pos = random.choice(self.empties)
+            pos = self.random_state.choice(self.empties)
             return pos
         else:
             return None
@@ -361,7 +366,7 @@ class SingleGrid(Grid):
     """ Grid where each cell contains exactly at most one object. """
     empties = []
 
-    def __init__(self, width, height, torus):
+    def __init__(self, width, height, torus, random_state=None):
         """ Create a new single-item grid.
 
         Args:
@@ -369,7 +374,7 @@ class SingleGrid(Grid):
             torus: Boolean whether the grid wraps or not.
 
         """
-        super().__init__(width, height, torus)
+        super().__init__(width, height, torus, random_state)
 
     def position_agent(self, agent, x="random", y="random"):
         """ Position an agent on the grid.
