@@ -5,7 +5,6 @@ The model class for Mesa framework.
 Core Objects: Model
 
 """
-import datetime as dt
 import numpy as np
 
 
@@ -25,7 +24,7 @@ class Model:
         """
         # seed the internal numpy.random.RandomState object
         if seed is None:
-            self.seed = dt.datetime.now()
+            self.seed = np.random.randint(2**32, dtype='int64')
         else:
             self.seed = seed
         self.random_state = np.random.RandomState(seed)
