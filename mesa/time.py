@@ -27,6 +27,8 @@ seeds consistent and allow for replication.
 
 """
 import numpy as np
+from simoc_server.database.db_model import AgentType
+
 
 class BaseScheduler:
     """ Simplest scheduler; activates agents one at a time, in the order
@@ -37,6 +39,7 @@ class BaseScheduler:
     (This is explicitly meant to replicate the scheduler in MASON).
 
     """
+
     def __init__(self, model, random_state=None):
         """ Create a new, empty BaseScheduler. """
         self.model = model
@@ -81,6 +84,28 @@ class BaseScheduler:
         return len(self.agents)
 
 
+class PrioritizedRandomActivation(BaseScheduler):
+    def __init__(self, model, random_state=None, priorities=None):
+        super().__init__(model, random_state)
+        self.priorities = priorities
+
+    def step(self):
+        agent_by_class = {}
+        for agent in self.agents[:]:
+            agent_class = AgentType.query.get(agent._agent_type_id).agent_class
+            if agent_class not in agent_by_class:
+                agent_by_class[agent_class] = []
+            agent_by_class[agent_class].append(agent)
+        for agent_class in self.priorities:
+            if agent_class in agent_by_class:
+                agents = agent_by_class[agent_class]
+                self.random_state.shuffle(agents)
+                for agent in agents[:]:
+                    agent.step()
+        self.steps += 1
+        self.time += 1
+
+
 class RandomActivation(BaseScheduler):
     """ A scheduler which activates each agent once per step, in random order,
     with the order reshuffled every step.
@@ -91,6 +116,7 @@ class RandomActivation(BaseScheduler):
     Assumes that all agents have a step(model) method.
 
     """
+
     def step(self):
         """ Executes the step of all agents, one at a time, in
         random order.
@@ -111,6 +137,7 @@ class SimultaneousActivation(BaseScheduler):
     apply them yet. advance() then applies the changes.
 
     """
+
     def step(self):
         """ Step all agents, then advance them. """
         for agent in self.agents[:]:
@@ -133,8 +160,9 @@ class StagedActivation(BaseScheduler):
     increments of 1 / (# of stages), meaning that 1 step = 1 unit of time.
 
     """
+
     def __init__(self, model, random_state=None, stage_list=None,
-                shuffle=False, shuffle_between_stages=False):
+                 shuffle=False, shuffle_between_stages=False):
         """ Create an empty Staged Activation schedule.
 
         Args:
